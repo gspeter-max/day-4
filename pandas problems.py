@@ -120,3 +120,88 @@ print(f' The month with the highest total sales for each customer : {month_df}')
 
 moth_wise_trend = outliers_free.groupby(['month','product_category'])['total_sales'].agg('mean')
 print(moth_wise_trend)
+
+''' Problem 2: Multi-level Indexing and Advanced Window Operations
+You are working with a dataset of daily stock prices for multiple companies. The dataset contains the following columns:
+
+company_id (integer): Unique identifier for each company.
+date (datetime): The date for the stock price.
+stock_open (float): The stock's opening price.
+stock_close (float): The stock's closing price.
+stock_high (float): The stock's highest price for the day.
+stock_low (float): The stock's lowest price for the day.
+volume (integer): The number of shares traded.
+Task:
+
+Convert the date column to a datetime format and set it as the index.
+Create a multi-level index using company_id and date.
+Calculate the moving average of the stock_close price for each company, using a rolling window of 7 days.
+Calculate the percentage change in stock price (stock_close) for each company, and calculate the cumulative return for each company.
+Find the company with the highest average trading volume across all dates, and determine the range (difference between max and min) of closing prices for that company.
+Implement resampling of data to monthly frequency and compute the monthly average stock price for each company.
+Find the correlation between daily stock closing prices for the top 5 companies with the highest total trading volume in the last 3 months.  '''
+
+
+
+
+
+
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+
+np.random.seed(42)
+
+n_companies = 20
+n_days = 500
+
+company_ids = np.arange(1, n_companies + 1)
+dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_days)]
+
+data = []
+for company_id in company_ids:
+    for date in dates:
+        stock_open = np.round(np.random.uniform(100, 1000), 2)
+        stock_close = stock_open + np.random.uniform(-5, 5)
+        stock_high = max(stock_open, stock_close) + np.random.uniform(0, 5)
+        stock_low = min(stock_open, stock_close) - np.random.uniform(0, 5)
+        volume = np.random.randint(1000, 100000)
+        data.append([company_id, date, stock_open, stock_close, stock_high, stock_low, volume])
+
+df = pd.DataFrame(data, columns=['company_id', 'date', 'stock_open', 'stock_close', 'stock_high', 'stock_low', 'volume'])
+
+df['date'] = pd.to_datetime(df['date'])
+df = df.set_index(['company_id', 'date'])
+
+moving_average = df.groupby(level='company_id')['stock_close'].rolling(window=7).mean()
+
+percentage_change = df.groupby('company_id')['stock_close'].pct_change()
+
+cumulative_return = df.groupby('company_id').apply(lambda x: (x['stock_open'] - x['stock_close']) / x['stock_open'])
+
+high_trading_volumes = df.groupby(['company_id', 'date'])['volume'].mean().idxmax()
+company_id, date = high_trading_volumes
+df_temp = df.xs(key=company_id, level='company_id')
+
+ranges = (df_temp['stock_close'].max() - df_temp['stock_close'].min())
+
+df = df.reset_index()
+df = df.set_index('date')
+resample_monthly = df.resample(rule='m').apply(lambda x: x.groupby('company_id')['stock_close'].agg('mean'))
+
+df = df.reset_index()
+
+dates = (df['date'].max() - timedelta(days=90))
+df_3_month = df[df['date'] >= dates]
+
+total_volumes = df_3_month.groupby('company_id')['volume'].sum().reset_index()
+top_5 = total_volumes.nlargest(columns='volume', n=5)['company_id'].tolist()
+
+top_5_data = df[df['company_id'].isin(top_5)]
+
+top_5_pivot = top_5_data.pivot(index='date', columns='company_id', values='stock_close')
+
+correlation = top_5_pivot.corr()
+
+print(correlation)
+
