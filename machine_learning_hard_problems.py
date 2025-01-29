@@ -95,4 +95,79 @@ from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
 
 x_train_scaled = scaler.fit_transform(x_train_resample)
+x_test = scaler.fit_transform(x_test)
 # why i am not using that pipeline to do that and why i am  not use that scaled data that i am use in above answer that ? if you == 'bast data scientist': 
+
+
+from xgboost import XGBClassifier 
+from sklearn.metrics import classification_report , confusion_matrix , roc_auc_score 
+
+model =  XGBClassifier(
+	n_estimators = 300,
+	learning_rate = 0.34,
+	random_state = 42 ,
+	eval_metric = 'auc',
+	max_depth = 5 ,
+    n_jobs = 2
+    
+  
+)	
+
+model.fit(x_train_scaled,y_train_resample)
+y_predict_proba = model.predict_proba(x_test)[:, 1]
+y_predict = model.predict(x_test)
+
+print(f" classification report : {classification_report(y_test, y_predict)}")
+print(f" confusion matrix : {confusion_matrix(y_test, y_predict)}")
+print(f"roc_auc_score : {roc_auc_score(y_test, y_predict_proba)}")
+
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from xgboost import XGBClassifier
+
+# Define hyperparameter grid
+param_grid = {
+    'n_estimators': [100, 120, 300],
+    'learning_rate': [0.1, 0.4, 0.2],
+    'max_depth': [3, 5, 7]
+}
+
+# Define base model
+xgb_model = XGBClassifier(
+    random_state=42,
+    eval_metric='auc',
+    n_jobs=2,
+    use_label_encoder=False,
+    tree_method='hist'
+)
+
+# GridSearchCV with 3-fold cross-validation
+grid_search = GridSearchCV(
+    estimator=xgb_model,
+    param_grid=param_grid,
+    cv=3,
+    verbose=2,
+    scoring='roc_auc'
+)
+
+# Fit GridSearchCV
+grid_search.fit(x_train_scaled, y_train_resample)
+
+# Best model and parameters
+print(f"Best Params: {grid_search.best_params_}")
+best_estimator = grid_search.best_estimator_
+
+# Predictions
+best_y_predict = best_estimator.predict(x_test)
+best_y_proba = best_estimator.predict_proba(x_test)[:, 1]  # FIXED: use predict_proba
+
+# Evaluation Metrics
+print("\nClassification Report:")
+print(classification_report(y_test, best_y_predict))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, best_y_predict))
+
+print("\nROC AUC Score:")
+print(roc_auc_score(y_test, best_y_proba))
